@@ -1,0 +1,7 @@
+for_dan
+*.sw*
+.DS_Store
+BAM
+Luteus_genome
+*.vcf
+SAM

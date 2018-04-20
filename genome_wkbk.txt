@@ -1,0 +1,703 @@
+## so here we'll muck around with bowtie, see if we can get the F2 hybrid reads 
+## talking to the luteus genome:
+
+genome='/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.faa'
+
+## shortcut to instructions/scripts from Josh
+cd /Users/danthomas/Documents/naiandinus_gen/for_dan/Call_SNPs
+
+bowtie2 -I 150 -X 2000 --local --very-sensitive-local -x $genome -1 $i -2 $file2 
+
+## huh, looks like josh had R2 reads.. where are these?
+
+## looks like I will not know until Josh gets back to us. In the 
+## meantime, maybe we can run through a tutorial on the bowtie2 process...
+
+## we'll put the whole bowtie2 directory nearby and work in it, cuz they
+## have all the reads and genomes in it...
+
+## let's follow the manual tutorial for bowtie2:
+
+## http://bowtie-bio.sourceforge.net/bowtie2/manual.shtml#getting-started-with-bowtie-2-lambda-phage-example
+
+BT2_HOME=/Users/danthomas/Documents/naiandinus_gen/bowtie2-2.3.4.1-macos-x86_64
+
+## now we make an index file:
+
+mkdir tutorial
+cd tutorial
+mkdir lambda_ind
+cd lambda_ind
+
+$BT2_HOME/bowtie2-build $BT2_HOME/example/reference/lambda_virus.fa lambda_virus
+
+## this makes a set of indices from the reference genome. 
+## after this, you don't need the originial reference fasta
+
+## now align some reads:
+
+$BT2_HOME/bowtie2 -x lambda_ind -U $BT2_HOME/example/reads/reads_1.fq -S eg1.sam
+
+
+
+## side note, install SAMtools: ##
+
+cd samtools.1.8  
+
+./configure --prefix=/usr/local/bin
+
+make
+
+make install
+
+######### Samtools: ###########
+
+samtools view -bS eg1.sam > eg1.bam
+
+## and other cool stuff. Try this with our genome?
+
+#################################
+
+
+
+## josh's script:
+
+cd /Volumes/Ron/VCF
+mkdir ./BAM
+genome=/Volumes/Ron/VCF/Reference/LF10T
+flag=Flag_Z002_$1.log
+
+for i in /Volumes/Ron/VCF/fastq/$1/*R1*.fastq; do
+    file2="${i/R1/R2}"
+    output="${i/.fastq/.bam}"
+    output=${output##*/}
+    [ -e "$i" ] && bowtie2 -I 150 -X 2000 --local --very-sensitive-local -x $genome -1 $i -2 $file2 | samtools view -bS - > ./BAM/$output || echo "There was a problem with Z002 for $1" >> $flag
+done
+
+echo "Bowtie2 for $1 done: " $(date) >> $flag
+
+
+## looks like he had both R1 and R2 reads. How come ours are all labeled R1?
+
+
+## looks like josh did in fact merge paired ends. I can't reconstruct, I don't seem 
+## to have the R2s
+
+## but why are all of the reads lumped into one large merged file?
+
+## and what are these fastqs? Different colors of F2 offspring? 
+
+## does that mean we need to demultiplex?
+
+## lets look:
+
+cool='/Users/danthomas/Documents/naiandinus_gen/for_dan/Cooley_3315_160429B1'
+
+cd $cool
+
+fr i in *fastq; do echo $(head -n 1 $i) $i; done
+
+## okay, talked to Josh - there are no reverse reads, josh included some 
+## extra scripts in the files...
+
+########## plot read quality of one of the fastq files: #############
+
+## can we get a good look at the read quality:
+
+
+for i in $fpath*"fastq"
+do
+echo $i
+$ftd"fastx_quality_stats" -Q33 -i $i -o $i"-Stats.txt"
+echo $i done!
+done
+
+## while we're at it, get fastx tools into path
+
+cd /usr/local/Cellar/fastxtools/
+
+cd /usr/local/bin
+
+for i in /usr/local/Cellar/fastxtools/*; do
+    ln -s $i /usr/local/bin$(basename $i)
+done
+
+## next time should be easier
+
+## what do these look like?
+
+fpath='/Users/danthomas/Documents/naiandinus_gen/for_dan/Cooley_3315_160429B1/'
+
+fastq_quality_boxplot_graph.sh -h
+
+for i in $fpath*Stats.txt; do
+echo $i
+#fastq_quality_boxplot_graph.sh -i $i -o $i"quality.eps" -p
+echo $i"quality.eps"
+done
+
+## huh, not sure if I did that right, cuz they all look the same...
+
+## but they are all high quality, if they are right. Something is fishy, don't 
+## think I can trust these stats, because they are totally uniform, no variation 
+## in the qscores of the millions of reads? weird. Maybe this is normal for 
+## genomic work?
+
+
+
+## oh well, let's try an alignment:
+
+######### as per josh
+
+cd /Volumes/Ron/VCF
+mkdir ./BAM
+genome=/Volumes/Ron/VCF/Reference/LF10T
+flag=Flag_Z002_$1.log
+
+for i in /Volumes/Ron/VCF/fastq/$1/*R1*.fastq; do
+    file2="${i/R1/R2}"
+    output="${i/.fastq/.bam}"
+    output=${output##*/}
+    [ -e "$i" ] && bowtie2 -I 150 -X 2000 --local --very-sensitive-local -x $genome -1 $i -2 $file2 | samtools view -bS - > ./BAM/$output || echo "There was a problem with Z002 for $1" >> $flag
+done
+
+##########
+
+
+## first make indices from our scaffolds of the 
+
+bowtie2-build -f /Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.faa Mlu
+
+## so for one file:
+i=/Users/danthomas/Documents/naiandinus_gen/for_dan/Cooley_3315_160429B1/JP-S1_S16_L002_R1_001.fastq
+j=$(basename $i)
+k=${j/fastq/sam}
+bowtie2 --local  -x Mlu -U $i -S /Users/danthomas/Documents/naiandinus_gen/SAM/$k 
+
+## a script to run these alignments:
+
+## aligns.sh
+############################
+#!/usr/bin/env bash
+
+## path to our fastqs
+fpath='/Users/danthomas/Documents/naiandinus_gen/for_dan/Cooley_3315_160429B1/'
+
+touch error_log_13.04.2018.txt
+
+cd /Users/danthomas/Documents/naiandinus_gen/Luteus_genome
+
+for i in $fpath*001.fastq; do
+	j=$(basename $i)
+	k=${j/fastq/sam}
+	echo $i >> error_log_13.04.2018.txt
+	bowtie2 --local  -x Mlu -U $i -S /Users/danthomas/Documents/naiandinus_gen/SAM/$k \
+	&& echo $k done >> error_log_13.04.2018.txt || echo $k fucked up somehow >> error_log_13.04.2018.txt
+done
+
+############################
+
+## run it:
+
+chmod 777 aligns.sh
+
+time ./aligns.sh 
+
+touch error_log.txt
+for i in $fpath*001.fastq; do
+	j=$(basename $i)
+	k=${j/fastq/sam}
+	echo $i >> error_log.txt
+	echo $k done >> error_log.txt || echo $k fucked up somehow >> error_log.txt
+done
+
+
+#### okay, chewing away on that. 
+
+## now done. times:
+
+## real    565m3.770s
+## user    554m22.225s
+## sys     4m27.857s
+
+## stout:
+
+## 56034871 reads; of these:
+##   56034871 (100.00%) were unpaired; of these:
+##     7893494 (14.09%) aligned 0 times
+##     11729089 (20.93%) aligned exactly 1 time
+##     36412288 (64.98%) aligned >1 times
+## 85.91% overall alignment rate
+## 68049510 reads; of these:
+##   68049510 (100.00%) were unpaired; of these:
+##     7592098 (11.16%) aligned 0 times
+##     14879687 (21.87%) aligned exactly 1 time
+##     45577725 (66.98%) aligned >1 times
+## 88.84% overall alignment rate
+## 60681218 reads; of these:
+##   60681218 (100.00%) were unpaired; of these:
+##     9222716 (15.20%) aligned 0 times
+##     12679236 (20.89%) aligned exactly 1 time
+##     38779266 (63.91%) aligned >1 times
+## 84.80% overall alignment rate
+## 55885597 reads; of these:
+##   55885597 (100.00%) were unpaired; of these:
+##     7485075 (13.39%) aligned 0 times
+##     11651355 (20.85%) aligned exactly 1 time
+##     36749167 (65.76%) aligned >1 times
+## 86.61% overall alignment rate
+## 67627796 reads; of these:
+##   67627796 (100.00%) were unpaired; of these:
+##     15149703 (22.40%) aligned 0 times
+##     13937577 (20.61%) aligned exactly 1 time
+##     38540516 (56.99%) aligned >1 times
+## 77.60% overall alignment rate
+## 66654520 reads; of these:
+##   66654520 (100.00%) were unpaired; of these:
+##     9078782 (13.62%) aligned 0 times
+##     14502639 (21.76%) aligned exactly 1 time
+##     43073099 (64.62%) aligned >1 times
+## 86.38% overall alignment rate
+
+## what's next?
+
+## convert to BAM:
+
+cd /Users/danthomas/Documents/naiandinus_gen/SAM
+
+for i in *sam; do
+	echo $i
+	time samtools view $i -bS > ./BAM/${i/sam/bam}
+done
+
+
+
+samtools view -bS - > ./BAM/$output
+
+## times:
+
+## real    7m14.139s
+## user    6m29.074s
+## sys     0m11.309s
+## JP-S2_S17_L002_R1_001.sam
+## 
+## real    8m35.081s
+## user    7m50.433s
+## sys     0m13.315s
+## JP-S3_S18_L002_R1_001.sam
+## 
+## real    7m26.098s
+## user    6m53.986s
+## sys     0m11.859s
+## JP-S4_S19_L002_R1_001.sam
+## 
+## real    7m1.775s
+## user    6m23.774s
+## sys     0m10.780s
+## JP-S5_S20_L002_R1_001.sam
+## 
+## real    8m7.840s
+## user    7m28.659s
+## sys     0m12.666s
+## JP-S6_S21_L002_R1_001.sam
+## 
+## real    8m11.355s
+## user    7m36.835s
+## sys     0m12.849s
+
+## okay, got the BAMs. Now what?
+
+## Josh did this next:
+
+cd /Volumes/Ron/VCF
+flag=Flag_Z004_$1.log
+
+for i in ./BAM/$1*.bam; do
+    output="${i/.bam/.FM.bam}"
+    [ -e "$i" ] && picard FixMateInformation I=$i O=$output SO=coordinate || echo "There was a problem with Z004 for $1" >> $flag
+    rm $i
+done
+
+## what is picard? a package of tools for hnadling hi-throughput result files like BAMs
+## sounds handy. So what does fixMateInformation do?
+
+## looks like it checks headers of reads to make sure the right
+## reads got paired, etc. But we didn't merge paired ends, soo, 
+## need this? don't think so...
+
+## gotta sort these BAMs, apparently
+
+## sort by coordinate position in the reference genome:
+
+## sortBAMs.sh
+###############
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM
+
+touch sortBAMs_log.txt 
+
+for i in *
+do
+    ls $i
+    output="sortedBAM/"${i/.bam/.sorted.bam}
+    picard SortSam I=$i O=$output SORT_ORDER=coordinate \
+    && echo $output finished >> markdupe_log.txt || echo "Something's fucked with "$output >> markdupe_log.txt
+done
+
+##################
+
+time ./sortBAMS.sh
+
+
+
+
+
+## so next josh did this:
+
+less /Users/danthomas/Documents/naiandinus_gen/for_dan/Call_SNPs/readme.txt
+
+## PicardMarkDupes.sh
+
+for i in ./BAM/$1*.FM.bam; do
+    output="${i/.FM.bam/.MD.bam}"
+    [ -e "$i" ] && picard MarkDuplicates I=$i O=$output M=$output.metrics.txt REMOVE_DUPLICATES=true MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 || echo "There was a problem with Z005 for $1 " >> $flag
+##    rm $i
+done
+
+## I'm a little unclear on this. I can see why removing duplicates is handy. 
+## Dereplicating the redundant information in duplicates makes sense 
+## as far as computational expense. But the explanation in picard's manual
+## implies that all duplicates are erroroneous reads - how can this be 
+## true? Presumably the same digestion site occurs several times, gets 
+## sequenced? Maybe the sites of digestion are random, so it is really
+## unlikely that a sequence would happen twice. 
+
+## not sure, anyway, just following orders like a good scientist...
+
+
+## josh's command:
+
+## picard MarkDuplicates I=$i O=$output M=$output.metrics.txt REMOVE_DUPLICATES=true MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 
+
+## the max_file_handles parameter... manual says that this sets a limit on 
+## the number of open files for this process, because there is a limit permitted
+## by the kernel. Can be found on our comp with:
+
+ulimit -n ## 256 files
+
+## that's a LOT less than the default setting of 8000, and what Josh 
+## used (he was on a cluster?). So one of our commands would look like this?
+
+
+sbam="/Users/danthomas/Documents/naiandinus_gen/BAM/sortedBAM"
+
+ddm="/Users/danthomas/Documents/naiandinus_gen/BAM/dmBAM/"
+
+## try one:
+
+
+i="JP-S1_S16_L002_R1_001.sorted.bam"
+output=${i/.sorted.bam/.MD.bam}
+echo $ddm$output
+
+cd $sbam
+picard MarkDuplicates I=$i O=$ddm$output M=$output.metrics.txt REMOVE_DUPLICATES=true MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=256 
+
+## seems to work. try looping through:
+
+
+## markdupes.sh
+###############
+
+ddm="/Users/danthomas/Documents/naiandinus_gen/BAM/dmBAM/"
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM/sortedBAM
+
+touch $ddm"markdupe_log.txt"
+
+for i in *
+do
+    echo $i
+    output=${i/.sorted.bam/.MD.bam}
+    echo $output
+    picard MarkDuplicates \
+        I=$i \
+        O=$ddm$output \
+        M=$output.metrics.txt \
+        REMOVE_DUPLICATES=true \
+        MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=256 \
+    && echo $output finished >> markdupe_log.txt || echo "Something's fucked with "$output >> markdupe_log.txt
+done
+
+##################
+
+#        ASSUME_SORT_ORDER=coordinate \
+
+chmod 777 markdupes.sh
+
+time ./markdupes.sh
+
+at -f markdupes.sh now + 3 hour
+
+## huh, that didn't work at all. 
+
+## need to figure out the at command better. 
+
+## rerun it now
+
+
+
+####################
+
+
+## worked. Now we need to assign read groups? I gather that this 
+## marks BAM/SAM files with information from the illumina header
+
+## josh's example is as such:
+
+picard AddOrReplaceReadGroups I=$i O=$output RGPL=illumina RGPU=indexSEQ RGID=90210 RGLB=A_Library RGSM=$1 
+
+## looks like he fills in the rg fields with some metadata and keeps the phenotype binning in the 
+## RGSM field (Read Group Sample Name)
+
+## 
+
+
+## one of our reads has this:
+
+fastqs='/Users/danthomas/Documents/naiandinus_gen/for_dan/Cooley_3315_160429B1/'
+
+head -n 1 $fastqs"JP-S5_S20_L002_R1_001.fastq"
+
+## @K00282:27:HC3GVBBXX:2:1101:1945:998 1:N:0:NAGCTT
+
+## let's look at one of our SAM files, see what the read group info is:
+
+samtools view -H /Users/danthomas/Documents/naiandinus_gen/SAM/JP-S1_S16_L002_R1_001.sam | grep '@RG'
+samtools view -H /Users/danthomas/Documents/naiandinus_gen/SAM/JP-S1_S16_L002_R1_001.sam | head
+
+## doesn't exist. I guess that's why we have to add it now. 
+
+## for one of our reads:
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM/dmBAM
+rgBAMs="/Users/danthomas/Documents/naiandinus_gen/BAM/rgBAM/"
+
+for i in *; do
+echo $i 
+output=$rgBAMs${i/.MD.bam/.RG.bam}
+echo $output
+done
+
+picard AddOrReplaceReadGroups \
+    I=$i \
+    O=$output \
+    RGPL=illumina \
+    RGPU=indexSEQ \ ## GATK site says..?
+    RGID=90210 \ ## I think this is the same for all reads from the same lane and run...
+    RGLB=A_Library \ ##...?
+    RGSM=$1 ## position parameter when he ran the script... what was it? 
+
+
+## if he assign RGSM to all the BAM files with the same parameter, 
+## must not be that important..?
+
+## hell, just try one. Then on to geneious:
+
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM/dmBAM
+
+rgBAMs="/Users/danthomas/Documents/naiandinus_gen/BAM/rgBAM/"
+
+i=JP-S1_S16_L002_R1_001.MD.bam
+SM=$(echo $i | sed "s/.*_S/S/g" | sed "s/_L.*//g")
+output=$rgBAMs${i/.MD.bam/.RG.bam}
+
+picard AddOrReplaceReadGroups  I=$i  O=$output  RGPL=illumina  RGPU=indexSEQ  RGID=27  RGLB=A_Library  RGSM=$SM
+
+    echo $i
+    echo $SM
+    echo $output
+
+## seems to work, 
+## loop it:
+
+## rg.sh
+########################################
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM/dmBAM
+
+rgBAMs="/Users/danthomas/Documents/naiandinus_gen/BAM/rgBAM/"
+
+touch $rgBAMs"rglog.txt"
+
+for i in *; do
+    echo $i >> $rgBAMs"rglog.txt"
+    SM=$(echo $i | sed "s/.*_S/S/g" | sed "s/_L.*//g")
+    output=$rgBAMs${i/.MD.bam/.RG.bam}
+    picard AddOrReplaceReadGroups  I=$i  O=$output  RGPL=illumina  RGPU=indexSEQ  RGID=27  RGLB=A_Library  RGSM=$SM
+    echo $output >> $rgBAMs"rglog.txt"
+done
+
+#################################################
+
+time ./rg.sh
+
+## real    16m58.738s
+## user    16m4.972s
+## sys     0m14.424s
+
+
+## executed okay. We'll see downstream if the labels for the reading group worked.
+
+## what's next?
+
+## looks like Josh merged all of these RG-labeled files into one. 
+## used the samtools merge command:
+
+########## Josh script for adding read groups and merge #########
+##
+## cd /Volumes/Ron/VCF
+## flag=Flag_Z006_$1.log
+## 
+## for i in ./BAM/$1*.MD.bam; do
+##     output="${i/.MD.bam/.RG.bam}"
+##     #sample=${i##*/}
+##     #sample="${sample/.MD.bam/}"
+##     [ -e "$i" ] && picard AddOrReplaceReadGroups I=$i O=$output RGPL=illumina RGPU=indexSEQ RGID=90210 RGLB=A_Library RGSM=$1 || echo "There was a problem with Z006 for $1" >> $flag
+## done
+## rm ./BAM/$1*.MD.bam
+
+#### looks like here he is counting the rg-labeled BAM files of some basename (argument), and storing their names in an array:
+
+## declare -i j=0    
+## for i in ./BAM/$1*.RG.bam; do
+##     str="$str $i"
+##     j=$j+1
+## done
+
+#### then he uses the basename of the last $i assigned to make file name for the merged file:
+## 
+## output="${i/.RG.bam/.Merged.bam}"
+
+## then he checks to to see if there are more than one file. If so, merge them. If not, change the single file name to merged 
+
+## if test $j -gt 1; then
+##     echo "There are $j files for $1 - merging"
+##     samtools merge $output $str
+## else
+##     echo "There is $j file for $1 - renaming"
+##     mv $str $output
+## fi
+## 
+## outsort="${i/.RG.bam/.Sorted}"
+## samtools sort $output $outsort
+## 
+## ##rm ./BAM/$1*.RG.bam
+## ##rm ./BAM/$1*.Merged.bam
+## 
+## echo "Read groups added and files merged and sorted for $1: " $(date) >> $flag
+##
+##############################
+
+## so for us, I think this is as simple as:
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM/rgBAM
+
+for i in *; do 
+    ins="$ins $i"
+done
+
+samtools merge Mll_x_MN.merged.bam $str
+
+## real    23m43.163s
+## user    15m23.801s
+## sys     0m14.385s
+
+## worked? the merged file is approximately the sum of the other files...
+
+#####################
+
+## the next step needs the GATK tools, which are jar files. 
+
+## but as I understand it, we don't need to call the jar files themselves, there's a wrapper script that 
+## linked to our usr/local/bin folder. 
+
+## not sure what ploidy to use here, technically tetraploid but functionally diploid
+
+## Josh's script:
+
+## java -Xmx30g -jar GenomeAnalysisTK.jar -R $genome -T UnifiedGenotyper -rf MaxInsertSize --maxInsertSize 10000 -rf DuplicateRead -rf BadMate -rf BadCigar --min_base_quality_score 25 -rf MappingQuality --min_mapping_quality_score 25 -ploidy 2 --genotype_likelihoods_model BOTH --output_mode EMIT_ALL_SITES --max_alternate_alleles 2 $str -o $out
+
+## Let's try this with ploidy = 2
+
+## the unified genotyper is deprecated, use HaplotypeCaller
+
+## oops, looks like I need to make a proper reference genome, can't just use the fasta
+## as is. How to do this ... two steps, make a seq dictionary and another index for 
+## the genome:
+
+cd /Users/danthomas/Documents/naiandinus_gen/Luteus_genome/
+
+picard CreateSequenceDictionary REFERENCE=$genome OUTPUT=Mll_REF.dict
+
+samtools faidx Mimulus_luteus.fasta
+
+## and... also have to index our bam file?:
+
+samtools index /Users/danthomas/Documents/naiandinus_gen/BAM/Mll_x_MN.merged.bam
+
+## (I changed our genome name from ".fa" to ".fasta". This is going to mess with upstream
+## code...)
+
+## so to map the variants...
+
+## ours might look like:
+
+genome="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta"
+reference="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mll_REF.fasta"
+merged="/Users/danthomas/Documents/naiandinus_gen/BAM/Mll_x_MN.merged.bam"
+out="/Users/danthomas/Documents/naiandinus_gen/Mll_x_MN.merged.ver0.1.vcf"
+
+GATK HaplotypeCaller \
+    -R $reference \
+    -I $merged \
+    -ERC GVCF \
+    -rf MaxInsertSize \
+    --maxInsertSize 10000 \
+    -rf DuplicateRead \
+    -rf BadCigar \
+    -rf MappingQuality \
+    --min_mapping_quality_score 25 \
+    --min_base_quality_score 20 \ 
+    -ploidy 2 \
+    -o $out
+
+GATK HaplotypeCaller \
+    -R $reference \
+    -I $merged \
+    -O $out
+
+    -ERC GVCF \
+    -rf MaxInsertSize \
+    --maxInsertSize 10000 \
+    -ploidy 2 \
+
+## deleted mapping quality filters, because there is some kind of default mapping quality filter 
+## in the haplotyper, "HCMappingQualityFilter"
+
+
+gatk HaplotypeCaller -R
+
+## questions for josh 
+
+## best to merge our different BAMs into one to make this comparison? Does it matter?
+
+## do we need to set this: --max_alternate_alleles 2 $str  
+
+## don't we want the whole genome? as in, some sort of gvcf file? 
+
+
+picard ValidateSamFile I=$merged MODE=SUMMARY 
+
+## no errors found. Well, shit. What's wrong?
