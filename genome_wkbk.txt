@@ -618,6 +618,35 @@ samtools merge Mll_x_MN.merged.bam $str
 
 #####################
 
+
+## indexing, other prep
+
+## Looks like I need to make a proper reference genome, can't just use the fasta
+## as is. How to do this?
+
+genome="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta"
+ 
+cd /Users/danthomas/Documents/naiandinus_gen/Luteus_genome/
+
+## make dictionary of reference sequences
+picard CreateSequenceDictionary REFERENCE=$genome OUTPUT=Mimulus_luteus.dict
+
+## use make a samtools-type index
+samtools faidx Mimulus_luteus.fasta
+
+faidx="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta.fai"
+
+## and... also have to index our bam file?:
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM/
+
+samtools index /Users/danthomas/Documents/naiandinus_gen/BAM/Mll_x_MN.merged.bam
+## I think if I keep this in the same directory as the 
+## BAM I am analyzing, I don't need a separate shortcut to it...
+
+## (I changed our genome name from ".fa" to ".fasta". This is going to mess with upstream
+## code...oh well, onward)
+
 ## the next step needs the GATK tools, which are jar files. 
 
 ## but as I understand it, we don't need to call the jar files themselves, there's a wrapper script that 
@@ -633,48 +662,18 @@ samtools merge Mll_x_MN.merged.bam $str
 
 ## the unified genotyper is deprecated, use HaplotypeCaller
 
-## oops, looks like I need to make a proper reference genome, can't just use the fasta
-## as is. How to do this ... two steps, make a seq dictionary and another index for 
-## the genome:
-
-cd /Users/danthomas/Documents/naiandinus_gen/Luteus_genome/
-
-picard CreateSequenceDictionary REFERENCE=$genome OUTPUT=Mll_REF.dict
-
-samtools faidx Mimulus_luteus.fasta
-
-## and... also have to index our bam file?:
-
-samtools index /Users/danthomas/Documents/naiandinus_gen/BAM/Mll_x_MN.merged.bam
-
-## (I changed our genome name from ".fa" to ".fasta". This is going to mess with upstream
-## code...)
 
 ## so to map the variants...
 
 ## ours might look like:
 
 genome="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta"
-reference="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mll_REF.fasta"
 merged="/Users/danthomas/Documents/naiandinus_gen/BAM/Mll_x_MN.merged.bam"
 out="/Users/danthomas/Documents/naiandinus_gen/Mll_x_MN.merged.ver0.1.vcf"
 
-GATK HaplotypeCaller \
-    -R $reference \
-    -I $merged \
-    -ERC GVCF \
-    -rf MaxInsertSize \
-    --maxInsertSize 10000 \
-    -rf DuplicateRead \
-    -rf BadCigar \
-    -rf MappingQuality \
-    --min_mapping_quality_score 25 \
-    --min_base_quality_score 20 \ 
-    -ploidy 2 \
-    -o $out
 
 GATK HaplotypeCaller \
-    -R $reference \
+    -R $genome \
     -I $merged \
     -O $out
 
@@ -701,3 +700,149 @@ gatk HaplotypeCaller -R
 picard ValidateSamFile I=$merged MODE=SUMMARY 
 
 ## no errors found. Well, shit. What's wrong?
+
+
+## anyway, this is running:
+
+## I get the following error, endlessly:
+
+"""
+Annotation will not be calculated, genotype is not called or alleleLikelihoodMap is null
+"""
+
+
+GATK HaplotypeCaller \
+    -R $genome \
+    -I $merged \
+    -O $out
+
+## seems to have worked ....
+
+
+
+################### 
+
+## okay, can we use this VCF to reconstruct a 
+## draft M. naiandinus genome? Let's try the 
+## FastaAlternateReferenceMaker tool 
+
+
+
+## gatk says use like this:
+## java -jar GenomeAnalysisTK.jar \
+##    -R reference.fasta \
+##    -o output.fasta \
+##    -L input.intervals \
+##    -V input.vcf \
+##    [--snpmask mask.vcf]
+
+## so ours?:
+
+reference="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta"
+vcf="/Users/danthomas/Documents/naiandinus_gen/Mll_x_MN.merged.ver0.1.vcf"
+output="/Users/danthomas/Documents/naiandinus_gen/altref.fasta"
+
+GATK FastaAlternateReferenceMaker \
+-R $reference \
+-V $vcf \
+-o $output
+
+## but gatk isn't finding that program...hmm... online folks are still using it...
+
+type -a gatk   ## gatk is /usr/local/bin/gatk, which is a symlink to /usr/local/Cellar/gatk-4.0.3.0/gatk
+
+cd /usr/local/Cellar/gatk-4.0.3.0/gatk
+
+##example:
+java -jar GenomeAnalysisTK.jar -R ../human_g1k_v37.fasta -T FastaAlternateReferenceMaker
+
+## ours?
+java -jar gatk-package-4.0.3.0-local.jar -T FastaAlternateReferenceMaker -R $reference -o $output -V $vcf
+
+## not working. GenomeAnalysisTK.jar - is this different than our gatk-package?
+
+
+## well, this tool ("FastaAlternateReferenceMaker") isn't in the current, 4.0 version of GATK. 
+## let's see if we can get the 3.8 version going...
+
+## okay, the old  3.8 gatk is installed in the cellar. I guess we need to symlink to it, cuz it's 
+## not technically a binary, is a file that the java interpreter calls...
+
+ln -s /usr/local/Cellar/GenomeAnalysisTK-3.8/GenomeAnalysisTK.jar GenomeAnalysisTK.jar
+
+
+## does it work?
+
+reference="/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta"
+vcf="/Users/danthomas/Documents/naiandinus_gen/Mll_x_MN.merged.ver0.1.vcf"
+output="/Users/danthomas/Documents/naiandinus_gen/Mn_v0.1.fasta"
+
+java -jar GenomeAnalysisTK.jar -T FastaAlternateReferenceMaker -R $reference -o $output -V $vcf 
+
+## compare to our luteus genome:
+
+luteus='/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta'
+
+wc -l Mn_v0.1.fasta
+wc -l $luteus
+
+head Mn_v0.1.fasta
+head $luteus
+
+tail Mn_v0.1.fasta
+tail $luteus
+
+## number of scaffolds the same?
+
+grep ">" Mn_v0.1.fasta | wc -l
+grep ">" $luteus | wc -l
+
+## looks like it
+
+## not sure how to sanity check this. 
+
+## can we get some scaffolds of interest?
+
+## I see a couple options. Look at the scaffolds we know in genius, see if they make 
+## sense.
+
+## or get a local install of blast going, look for the myb genes in it
+
+
+########## local blast ###########
+
+
+## make our database
+makeblastdb -in Mn_v0.1.fasta -parse_seqids -dbtype nucl
+
+## let's look for our myb5a gene, taken from a sequence in the geneious database that claims to be exon1 of myb5 of the Mll scaffold 1235
+
+exon1myb5="TGGAAAACACACCTGTAGGTGTAAGAAAAGGTGCATGGTCCACAGAAGAAGACGTACTCCTGAGGAAATGCATTGAGAATTTTGGTGAAGGAAAATGGCATCTTGTACCTCTTAGAGCAG"
+
+echo ${#exon1myb5} ## 120 bp
+
+blastn -query <(echo $exon1myb5) -db Mn_v0.1.fasta -outfmt 6 -num_alignments 3 -num_descriptions 3 -out test.txt -task blastn
+
+## the headers for this format: qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+
+cat test.txt
+
+## huh, does that mean this exon matches exactly to something on scaffold 1211? 
+
+grep "1211" Mn_v0.1.fasta 
+## nope, the naiandinus genome has its own sequence numbers,
+## they are labeled with the scaffold that they came from in the original Luteus genome
+## in this case, goes to scaffold 1235 of the luteus genome. Makes sense.
+
+
+grep "731" Mn_v0.1.fasta 
+## same here, equivalent to scaffold 749 of Mll 
+
+## so let's see, are these numbers more or less equivalent? So if we extract just this 
+## sequence, is it M. naiandinus's version of the mll scaffold 1235?:
+
+grep ">1211" Mn_v0.1.fasta 
+
+grep -n ">1211" Mn_v0.1.fasta ## line 5672165
+
+
