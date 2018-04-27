@@ -815,6 +815,13 @@ grep ">" $luteus | wc -l
 ## make our database
 makeblastdb -in Mn_v0.1.fasta -parse_seqids -dbtype nucl
 
+## while we're at, let's do the Mll genome:
+
+cd /Users/danthomas/Documents/naiandinus_gen/Luteus_genome/
+makeblastdb -in Mimulus_luteus.fasta -parse_seqids -dbtype nucl
+
+mll_gen='/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta'
+
 ## let's look for our myb5a gene, taken from a sequence in the geneious database that claims to be exon1 of myb5 of the Mll scaffold 1235
 
 exon1myb5="TGGAAAACACACCTGTAGGTGTAAGAAAAGGTGCATGGTCCACAGAAGAAGACGTACTCCTGAGGAAATGCATTGAGAATTTTGGTGAAGGAAAATGGCATCTTGTACCTCTTAGAGCAG"
@@ -844,5 +851,169 @@ grep "731" Mn_v0.1.fasta
 grep ">1211" Mn_v0.1.fasta 
 
 grep -n ">1211" Mn_v0.1.fasta ## line 5672165
+
+
+
+grep ^">21 " Mn_v0.1.fasta 
+
+## so, how do we pull out these PLA regions for a nice visual in genius?
+
+## start with PLA1:
+
+## the interesting homeologue, which has myb5a, is on the mll scaffold of 1235. 
+## how many times is this scaffold referenced in this draft genome?
+
+grep "scaffold_1235" Mn_v0.1.fasta
+
+## just once, on sequence >1211 of our Mna genome:
+## >1211 lcl|scaffold_1235:1
+
+mll_gen='/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta'
+
+## can we use blast to pull this sequence out?
+
+head Mn_v0.1.fasta
+
+blastdbcmd -entry 1211 -db Mn_v0.1.fasta | head
+
+blastdbcmd -entry 1211 -db Mn_v0.1.fasta > Mna_scaffold_1235.fasta
+
+## so get scaffold out of the Mll genome for comparison
+blastdbcmd -entry scaffold_1235 -db $mll_gen | head
+
+blastdbcmd -entry scaffold_1235 -db $mll_gen > Mll_scaffold_1235.fasta
+
+## are these the same length in both genomes?
+
+wc -l Mna_scaffold_1235.fasta
+wc -l Mll_scaffold_1235.fasta
+
+## same length, look at them in geneious?
+
+## aligning now. And for PLA2?
+
+###################### PLA2 ##############################
+
+## repeat for PLA2, which should be on scaffold 26 
+
+grep "scaffold_26:" Mn_v0.1.fasta  ## sequence 21
+
+blastdbcmd -entry 21 -db Mn_v0.1.fasta > Mna_scaffold_26.fasta
+
+blastdbcmd -entry scaffold_26 -db $mll_gen > Mll_scaffold_26.fasta
+
+wc -l Mna_scaffold_26.fasta
+wc -l Mll_scaffold_26.fasta
+
+wc -c Mna_scaffold_26.fasta
+wc -c Mll_scaffold_26.fasta
+
+##  there's one line difference, why?
+
+head Mna_scaffold_26.fasta
+head Mll_scaffold_26.fasta
+
+tail Mna_scaffold_26.fasta
+tail Mll_scaffold_26.fasta
+
+## what are we interested in?
+
+## we want to design primers for the scaffold 26, PLA2 region
+## and we want the homeologue scaffold 1078 for comparisons
+
+## these are large scaffolds ~840,000 bp, can we home in a little?
+
+## for Mll, the region of interest is between 50,000 bp and 150,000
+## but can we assume that we know this on the draft naiandinus genome?
+
+## we can blast our myb genes, see if they are in the same spots:
+
+## but what to blast? We had good luck with exon1. Conserved, but 
+## not perfectly...
+
+## coming from the luteus genome:
+exon1myb2b="ATGGAGAAAAACAAAGGAGTAGTTGGAGTGAGTTGAGGTGCTTGGACAAAACTGTTGAAGAAATGCGTTCAAACCTATGGAGAAGGAAAGTGGCATCTTGTTCCTCTCAGAACT"
+
+echo ${#exon1myb2b} ## 114 bp
+
+blastn -query <(echo $exon1myb2b) -db Mn_v0.1.fasta -outfmt 6 -num_alignments 3  -task blastn -out blast_myb2bexon1_Mna.txt
+
+## qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore
+
+blastn -query <(echo $exon1myb2b) -db $mll_gen -outfmt 6 -num_alignments 3  -task blastn -out blast_myb2bexon1_Mll.txt
+
+## seq1077 pops up, what is this?
+
+grep ">1077 " Mn_v0.1.fasta 
+## this is scaffold 1078, the homeologue to 26. Not exactly the same, but I think that 
+## Arielle mentioned this. 
+
+## anyway,  our first blast match for exon 1 of myb2b starts at bp 138,253 of the Mna genome
+
+## and exon 1 of myb2b starts at 138,273 in Mll fits well. 
+
+## the other mybs?
+
+## let's check Myb1a and Myb 3a. These bracket the PLA2 region well. 
+
+exon1myb1a="ATGGAGAAGAATCAAGAAGTAGTATTAGGAGTGAGGAAAGGTGCATGGACAAAAGACGAAGATATCCTTTTACAGAAATGCATCGAAAACTACGGCGAGGGGAAGTGGCATCTTGTCCCTCATAGAGCT"
+exon1myb3a="ATGGAGACAAACAAAGGAGTAGTTGGTGTTAGGAGAGGTGCATGGACTAAAGAAGAAGATCAACTGCTGAGGAAATGCGTTCAAACCTATGGAGAAGGAAAGTGGCATCTTGTCCCCCTCAGAACTGG"
+
+blastn -query <(echo $exon1myb1a) -db $mll_gen -outfmt 6 -num_alignments 3  -task blastn -out blast_myb1aexon1_Mll.txt
+blastn -query <(echo $exon1myb1a) -db Mn_v0.1.fasta -outfmt 6 -num_alignments 3  -task blastn -out blast_myb1aexon1_Mna.txt
+
+## myb1a starts at 93,276 in Mna? ~the same in Mll. Error in name of geneious sequence? (should be myb1b?)
+## but there is a secondary hit, ~90% seq similarity, around BP 56,700 in both Mll and Mna. That's probably it, the real myb1a. 
+## as for myb3a:
+
+blastn -query <(echo $exon1myb3a) -db $mll_gen -outfmt 6 -num_alignments 3  -task blastn -out blast_myb3aexon1_Mll.txt
+blastn -query <(echo $exon1myb3a) -db Mn_v0.1.fasta -outfmt 6 -num_alignments 3  -task blastn -out blast_myb3aexon1_Mna.txt
+
+clear
+cat blast_myb3aexon1_Mll.txt
+cat blast_myb3aexon1_Mna.txt
+
+## in both genomes, myb3a is near 147,000. 
+
+## so it all seems to line up. We should be able to grab 50,000 to 150,000 as before
+
+## how do we grab just these subsetted sequences?
+
+
+###########################################################
+
+## to answer this, back up 
+
+## can we look at the coverage that we have in our naiandinus genome?
+
+## program of interest:
+bedtools genomecov
+
+## what is our input genome? the reference genome (Mll) or the final 
+## product (Mna)?
+
+## probably the reference genome. But maybe we should try them both...
+
+
+## bams
+example_BAM=/Users/danthomas/Documents/naiandinus_gen/BAM/sortedBAM/JP-S6_S21_L002_R1_001.sorted.bam
+mergedBAM=/Users/danthomas/Documents/naiandinus_gen/BAM/Mll_x_MN.merged.bam
+
+## genomes:
+Mna_gen=/Users/danthomas/Documents/naiandinus_gen/Mn_v0.1.fasta
+Mll_gen=/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta
+
+## looks like there are a couple types of output formats. let's check a few:
+
+(bedtools genomecov -ibam $mergedBAM -g Mll_gen > genom_cov_test1.txt &) &
+
+## huh, it demands a genome but then tells me it is going to ignore it since this 
+## is a bam file... weird
+
+(bedtools genomecov -ibam $mergedBAM -bg > genome_cov_test2.txt &) & 
+
+## let that run...
+
+
 
 

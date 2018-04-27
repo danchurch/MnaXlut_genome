@@ -5,3 +5,9 @@ BAM
 Luteus_genome
 *.vcf
 SAM
+Mna_scaffold_1235.fasta
+Mna_scaffold_26.fasta
+Mll_scaffold_26.fasta
+Mll_scaffold_1235.fasta
+GenomeAnalysisTK.jar
+.ipynb_checkpoints/
