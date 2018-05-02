@@ -600,7 +600,7 @@ for i in *; do
     ins="$ins $i"
 done
 
-samtools merge Mll_x_MN.merged.bam $str
+samtools merge Mll_x_MN.merged.bam $ins
 
 ## real    23m43.163s
 ## user    15m23.801s
