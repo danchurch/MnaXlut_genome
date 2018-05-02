@@ -203,14 +203,6 @@ chmod 777 aligns.sh
 
 time ./aligns.sh 
 
-touch error_log.txt
-for i in $fpath*001.fastq; do
-	j=$(basename $i)
-	k=${j/fastq/sam}
-	echo $i >> error_log.txt
-	echo $k done >> error_log.txt || echo $k fucked up somehow >> error_log.txt
-done
-
 
 #### okay, chewing away on that. 
 
