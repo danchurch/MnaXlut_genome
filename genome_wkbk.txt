@@ -898,6 +898,7 @@ wc -l Mll_scaffold_1235.fasta
 
 grep "scaffold_26:" Mn_v0.1.fasta  ## sequence 21
 
+
 blastdbcmd -entry 21 -db Mn_v0.1.fasta > Mna_scaffold_26.fasta
 
 blastdbcmd -entry scaffold_26 -db $mll_gen > Mll_scaffold_26.fasta
@@ -997,23 +998,303 @@ bedtools genomecov
 
 ## bams
 example_BAM=/Users/danthomas/Documents/naiandinus_gen/BAM/sortedBAM/JP-S6_S21_L002_R1_001.sorted.bam
+
 mergedBAM=/Users/danthomas/Documents/naiandinus_gen/BAM/Mll_x_MN.merged.bam
 
 ## genomes:
 Mna_gen=/Users/danthomas/Documents/naiandinus_gen/Mn_v0.1.fasta
 Mll_gen=/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta
 
-## looks like there are a couple types of output formats. let's check a few:
 
-(bedtools genomecov -ibam $mergedBAM -g Mll_gen > genom_cov_test1.txt &) &
+(bedtools genomecov -ibam $mergedBAM -g Mll_gen > genome_cov_test1.txt &) &
 
 ## huh, it demands a genome but then tells me it is going to ignore it since this 
-## is a bam file... weird
+## is a bam file... weird... and a pretty small file size (26 mb, from a 5 gig BAM file?)
+
+## so run again? try it with the -d flag:
+
+bedtools genomecov -ibam $mergedBAM -d > MllxMna_genome_cov_BP.txt 
+
+## looks like there are a couple types of output formats. let's check a few:
 
 (bedtools genomecov -ibam $mergedBAM -bg > genome_cov_test2.txt &) & 
 
 ## let that run...
 
+## what does that look like?
 
+head genome_cov_test1.txt
+
+
+head genome_cov_test2.txt
+
+
+## hmm, no headers on these. I think the per BP data from
+## genome_cov_test1.txt is what we need...
+
+## as best I can understand, it looks like the column names are:
+
+## scaffold, BP#, # of reads covering the BP, length of scaffold, fraction of other BPs with this coverage elsewhere in the genome
+
+
+## Think so. So what do we do with this? We need a zoomable, scrollable 
+## map of PLA regions, homeologous regions, etc to look to know which 
+## areas we can have confidence in.
+
+## I think this is a job for d3. get npm (and node) installed ....
+
+## okay we have our choice of the js http-server or python's http.server
+
+## now to make a simple bar graph out of this? Can we extract our regions of interest?
+
+## let's focus on PLA2, which is on scaffold 26. Should be very large, is it?
+
+mkdir vis_cov
+
+cd vis_cov
+
+bedtools genomecov -ibam $mergedBAM -d > MllxMna_genome_cov_BP.txt
+
+## worked, but it's a massive file. How do we view this?
+
+## first, get the scaffolds out of interest:
+
+## for instance, Scaffold 26. Are all bps represented?
+
+grep "scaffold_26 " MllxMna_genome_cov_BP.txt | wc -l
+
+## how to extract this? and then view it?
+
+grep "scaffold_26\b" MllxMna_genome_cov_BP.txt | wc -l 
+## 830,797 lines 
+
+## does this match the original scaffold?
+
+wc -m ../Mll_scaffold_26.fasta 
+## 841,196
+
+## nope.  huh. why not? Are these ~10,000 bp in the original  luteus genome not in our naiaindinus ?
+
+## let's focus on extracting this scaffold from our massive file:
+
+head MllxMna_genome_cov_BP.txt 
+
+## find a regex that works:
+
+cat <(tail MllxMna_genome_cov_BP.txt) <(head MllxMna_genome_cov_BP.txt) | grep "scaffold_6437\b"
+cat <(tail MllxMna_genome_cov_BP.txt) <(head MllxMna_genome_cov_BP.txt) | grep "scaffold_6437\>"
+
+
+## mac has a really weird word boundry for regex:
+
+## example, this doesn't work:
+cat <(tail MllxMna_genome_cov_BP.txt) <(head MllxMna_genome_cov_BP.txt) | sed -n '/scaffold_6437\b/p'
+
+## this does:
+cat <(tail MllxMna_genome_cov_BP.txt) <(head MllxMna_genome_cov_BP.txt) | sed -n '/scaffold_6437[[:>:]]/p'
+
+## try it out on our massive coverage map:
+
+sed -n '/scaffold_26[[:>:]]/p' MllxMna_genome_cov_BP.txt > Mna_scaffold_26_coverage.tsv &
+
+## while that's chewing, how do we make a graph from these coverage charts?
+
+head MllxMna_genome_cov_BP.txt 
+
+## start by trying out a barchart of just the first ten bp of our first scaffold:
+
+head MllxMna_genome_cov_BP.txt > data.tsv
+
+## eh, wait on that. For right now, just get Arielle and the lab computer a copy of the
+## for scaffolds of interest, and their coverage information.
+
+## we already have the scaffold 1235 and scaffold 26 from Mna. To get the homeologues scaffold 749 and 1078?
+## also need the coverage info of 1235
+
+###### scaffold 749 ########
+
+cd /Users/danthomas/Documents/naiandinus_gen
+
+grep "scaffold_749" Mn_v0.1.fasta ## ">731"
+
+## check it
+blastdbcmd -entry 731 -db Mn_v0.1.fasta | head ## looks right
+
+## pull it out, save it:
+blastdbcmd -entry 731 -db Mn_v0.1.fasta > Mna_scaffold_749.fasta
+
+## coverage map
+
+cd vis_cov
+
+sed -n '/scaffold_749[[:>:]]/p' MllxMna_genome_cov_BP.txt > Mna_scaffold_749_coverage.tsv &
+
+## this file is 185,743 BP long. Seem right?
+
+wc -c /Users/danthomas/Documents/naiandinus_gen/Mna_scaffold_749.fasta
+
+## seems alright, some discrepency there, maybe line breaks?
+
+############ scaffold 1078 #################
+
+cd /Users/danthomas/Documents/naiandinus_gen
+
+grep "scaffold_1078" Mn_v0.1.fasta ## ">1077"
+
+## check it
+blastdbcmd -entry 1077 -db Mn_v0.1.fasta | head ## looks right
+
+## pull it out, save it:
+blastdbcmd -entry 1077 -db Mn_v0.1.fasta > Mna_scaffold_1078.fasta
+
+## coverage map
+
+cd vis_cov
+
+sed -n '/scaffold_1078[[:>:]]/p' MllxMna_genome_cov_BP.txt > Mna_scaffold_1078_coverage.tsv &
+
+## sanity check
+
+tail Mna_scaffold_1078_coverage.tsv ## 127317 bp. Seem right?
+
+wc -c /Users/danthomas/Documents/naiandinus_gen/Mna_scaffold_1078.fasta
+## 128,892 characters... we're in the right ball park...
+
+############
+
+## also need the coverage info of 1235
+
+sed -n '/scaffold_1235[[:>:]]/p' MllxMna_genome_cov_BP.txt > Mna_scaffold_1235_coverage.tsv &
+
+tail Mna_scaffold_1235_coverage.tsv ## 106436 bp. Seem right?
+
+wc -c /Users/danthomas/Documents/naiandinus_gen/Mna_scaffold_1235.fasta
+## 107,765 seems okay
+
+##############
+
+## pack em up and send them off. 
+
+## after labwork, start a nice notebook for how I did this so 
+## Josh or somebody can review. 
+
+##
+
+################
+
+## and...didn't work. Andreas' sequence data for the myb3a gene in the PLA2 region 
+## shows a 3bp deletion and a snp that my genome didn't pick up. Check on this...
+
+## 1 blast Andreas' sequence in the luteus and naiandinus genomes:
+
+
+mll_gen='/Users/danthomas/Documents/naiandinus_gen/Luteus_genome/Mimulus_luteus.fasta'
+
+Mn_v0.1.fasta 
+
+Mna_myb3a='TCACCTCACAAGTAGTACTGCCACCTGCTACAGATAATGTCGAGTACTGCAATGAAAATCACATGTTCGAAAAGAACCCATCTGATTTCTTATTGTCTGGGCCAATTAACGATCAA'
+
+blastn -query <(echo $Mna_myb3a) -db Mn_v0.1.fasta -outfmt 6 -num_alignments 6  -task blastn -out blast_Andreas_myb3a_Mna.txt
+blastn -query <(echo $Mna_myb3a) -db $mll_gen -outfmt 6 -num_alignments 6  -task blastn -out blast_Andreas_myb3a_Mll.txt
+
+blast_headers="qseqid sseqid  pident  length  mismatch    gapopen qstart  qend    sstart  send    evalue  bitscore"
+
+cat <(echo $blast_headers) blast_Andreas_myb3a_Mna.txt blast_Andreas_myb3a_Mll.txt
+
+## blast is finding one mismatch...but in geneious we see more, right?
+
+grep ">21 " Mn_v0.1.fasta
+
+## so, yeah, blast agrees with geneious....
+## check the coverage for this area...
+
+head Mna_scaffold_26_coverage.tsv
+
+grep -n 147670 Mna_scaffold_26_coverage.tsv
+grep -n 147690 Mna_scaffold_26_coverage.tsv
+## line numbers match up, BP number is line number. 
+
+sed -n 147670,147690p scaffold_coverages/Mna_scaffold_26_coverage.tsv 
+
+## coverage looks good, am I certain this is the spot? How to check...
+
+## not sure. Anyway, check the VCF...
+
+vcf="Mll_x_MN.merged.ver0.1.vcf"
+
+head $vcf
+
+clear
+grep "#CHROM" $vcf -A 5 -B 10
+
+## so to find our variant of interest? It's scaffold 26, bp 147,678.
+## our sanger data says there is a G here, and a T on the mna and mll genomes I have
+
+## in our vcf:
+
+grep scaffold_26\\t147678\\t $vcf  ## nada
+
+grep scaffold_26\\t147[0-9][0-9][0-9]\\t $vcf
+
+## hmm. not finding anything inthe neighborhood....
+
+## let's make sure we're not having some sort of indexing error:
+
+## make a samtools index of our genome:
+samtools faidx Mn_v0.1.fasta
+
+## 21 is our scaffol 26:
+grep ">21 " Mn_v0.1.fasta 
+
+## so look at this with the numbers we think we need (bp 147,678)
+
+samtools faidx Mn_v0.1.fasta 21:147670-147680 
+
+
+## no indexing error, the numbers line up. 
+
+## but our scaffolds have different numbers, have to rely on alignments:
+mll_gen=/Users/danthomas/Documents/naiandinus_gen/luteus_genome/Mimulus_luteus.fasta
+samtools faidx $mll_gen "lcl|scaffold_26":147670-147680
+
+## what about a positive check - can we go from a variant in our vcf and find it 
+## in our scaffolds?
+
+clear
+grep "#CHROM" $vcf -A 1
+
+## our first variant is at BP 209 of scaffold 32. 
+
+grep "scaffold_32[[:>:]]" Mn_v0.1.fasta ## >1
+
+clear
+
+cat \
+<(samtools faidx Mn_v0.1.fasta 1:205-215) \
+<(samtools faidx $mll_gen "lcl|scaffold_32":205-215)
+
+## what is our coverage for this site?
+
+
+cov=/Users/danthomas/Documents/naiandinus_gen/vis_cov/MllxMna_genome_cov_BP.txt
+scaf26cov=/Users/danthomas/Documents/naiandinus_gen/scaffold_coverages/Mna_scaffold_26_coverage.tsv
+
+grep scaffold_32\\t200\\t $cov -A 20
+
+grep scaffold_26\\t147678\t $scaf26cov -A 10 -B 10
+
+grep scaffold_26\\t147678 $scaf26cov -A 10 -B 10
+
+head $scaf26cov
+
+
+
+#############
+
+## so I'm pretty convinced the issue is (1) how picky the haplotyper tool is, 
+## and (2) our low read numbers...
+
+## can't do anything about the second, but maybe we can get the haplotyper to 
+## relax a bit?
 
 
