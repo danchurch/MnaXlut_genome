@@ -1318,3 +1318,24 @@ samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147676-147682" | cut -f 10 |
 
 ## around the SNP
 samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147676-147682" | cut -f 10 | grep -E "TTG.CTG|$"
+
+
+## there was a 3 bp deletion also in josh's sequences as compared to luteus. Is that in there? its at 147591-ish on scaffold 26:
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147590-147596" 
+##damn that's low coverage, 4 reads. 
+
+## where is our deletion? 
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147590-147596" | cut -f 10 
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147590-147596" | cut -f 10 | grep -E "AAGCAGTAG|$"
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147590-147596" | cut -f 10 | grep -E "CAAG|$"
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147590-147596" | cut -f 10 | grep -E "TAGT|$"
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147590-147596" | cut -f 10 | grep -E "AAGTAG|$"
+
