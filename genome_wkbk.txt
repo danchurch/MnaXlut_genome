@@ -1269,11 +1269,12 @@ cat \
 
 
 cov=/Users/danthomas/Documents/naiandinus_gen/vis_cov/MllxMna_genome_cov_BP.txt
+
 scaf26cov=/Users/danthomas/Documents/naiandinus_gen/scaffold_coverages/Mna_scaffold_26_coverage.tsv
 
 grep scaffold_32\\t200\\t $cov -A 20
 
-grep scaffold_26\\t147678\t $scaf26cov -A 10 -B 10
+grep scaffold_26\\t147678\\t $scaf26cov -A 10 -B 10
 
 grep scaffold_26\\t147678 $scaf26cov -A 10 -B 10
 
@@ -1289,4 +1290,31 @@ head $scaf26cov
 ## can't do anything about the second, but maybe we can get the haplotyper to 
 ## relax a bit?
 
+################
 
+
+## as per Josh's suggestion, let's check the reads at our missed SNP - 
+## do they show the SNP?
+
+## how do we find this info? It must be in the BAM. 
+
+## how does one read details the bam? convert back to sam?
+
+## I think this is not necessary. Try pulling out the region of interest
+## with samtools:
+
+cd /Users/danthomas/Documents/naiandinus_gen/BAM
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147678-147682" 
+
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147676-147682" | cut -f 10 
+
+## before the SNP
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147676-147682" | cut -f 10 | grep -E "TTATTG|$"
+
+## after the SNP
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147676-147682" | cut -f 10 | grep -E "CTGG|$"
+
+
+## around the SNP
+samtools view Mll_x_MN.merged.bam  "lcl|scaffold_26:147676-147682" | cut -f 10 | grep -E "TTG.CTG|$"
